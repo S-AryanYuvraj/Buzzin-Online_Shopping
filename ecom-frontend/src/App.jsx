@@ -10,7 +10,7 @@ import {
   ChevronLeft, ChevronRight, ArrowUpDown, Package, Tag, LogOut
 } from "lucide-react";
 
-const API = "http://localhost:8080";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 function useDebounce(value, delay) {
   const [debounced, setDebounced] = useState(value);
