@@ -21,6 +21,23 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1999&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=2070&auto=format&fit=crop"
+];
+
+const AUTH_IMAGES = [
+  "https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1555529771-835f59fc5efe?q=80&w=1887&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2015&auto=format&fit=crop"
+];
+const AUTH_TEXTS = [
+  { title: "Unlock the Marketplace.", subtitle: "Connect with top sellers and find exactly what you need." },
+  { title: "Trending Discoveries.", subtitle: "Stay ahead of the curve with our curated daily drops." },
+  { title: "Join the Buzzin Hive.", subtitle: "Experience shopping redefined. Smooth, secure, and fast." }
+];
+
 export default function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -43,6 +60,17 @@ export default function App() {
   const [direction, setDirection] = useState("ASC");
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounce(searchInput, 400);
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [authSlide, setAuthSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % HERO_IMAGES.length);
+      setAuthSlide(prev => (prev + 1) % AUTH_IMAGES.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   const [addOpen, setAddOpen] = useState(false);
   const [productForm, setProductForm] = useState({ name: "", description: "", price: "" });
@@ -116,7 +144,7 @@ export default function App() {
         key: order.keyId,
         amount: order.amount * 100, // paise
         currency: order.currency,
-        name: "ShopAdmin",
+        name: "Buzzin",
         description: "Test Transaction",
         order_id: order.orderId,
         handler: async function (response) {
@@ -258,18 +286,34 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
-        <Card className="w-full max-w-md relative">
-          <CardHeader className="text-center pb-2">
-            <div className="flex justify-center mb-3">
-              <div className="p-3 rounded-2xl bg-primary/20">
-                <ShoppingBag className="h-8 w-8 text-primary" />
+      <div className="min-h-screen flex bg-background">
+        {/* Left Side: Auth Carousel */}
+        <div className="hidden lg:flex flex-1 relative overflow-hidden bg-muted">
+          {AUTH_IMAGES.map((img, i) => (
+            <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${i === authSlide ? "opacity-100 z-10" : "opacity-0 z-0"}`}>
+               <img src={img} className="w-full h-full object-cover" alt="Auth background" />
+               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+               <div className={`absolute bottom-20 left-12 right-12 transition-all duration-700 delay-300 ${i === authSlide ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}>
+                  <h2 className="text-5xl font-black text-white mb-3 tracking-tight">{AUTH_TEXTS[i].title}</h2>
+                  <p className="text-xl text-gray-300 font-medium max-w-lg">{AUTH_TEXTS[i].subtitle}</p>
+               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Right Side: Auth Form */}
+        <div className="w-full lg:w-[500px] flex items-center justify-center p-8 bg-background relative border-l border-border/40 shrink-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+        <Card className="w-full max-w-sm relative border-none bg-transparent shadow-none">
+          <CardHeader className="text-center pb-6">
+            <div className="flex justify-center mb-5">
+              <div className="p-4 rounded-3xl bg-primary/10 shadow-[0_0_30px_rgba(233,30,99,0.15)] ring-1 ring-primary/20">
+                <ShoppingBag className="h-10 w-10 text-primary" />
               </div>
             </div>
-            <CardTitle className="text-2xl">ShopAdmin</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              {authMode === "login" ? "Sign in to your account" : "Create a new account"}
+            <CardTitle className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Buzzin</CardTitle>
+            <p className="text-sm font-medium text-muted-foreground mt-2">
+              {authMode === "login" ? "Welcome back. Access your account." : "Start your ecommerce journey today."}
             </p>
           </CardHeader>
           <CardContent>
@@ -319,20 +363,21 @@ export default function App() {
                   {authError}
                 </p>
               )}
-              <Button type="submit" className="w-full mt-2">
-                {authMode === "login" ? <><LogIn className="h-4 w-4" /> Sign In</> : <><UserPlus className="h-4 w-4" /> Create Account</>}
+              <Button type="submit" className="w-full mt-4 h-11 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all">
+                {authMode === "login" ? <><LogIn className="h-4 w-4 mr-2" /> Sign In</> : <><UserPlus className="h-4 w-4 mr-2" /> Create Account</>}
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="justify-center pt-0">
+          <CardFooter className="justify-center pt-2">
             <button
               onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors underline underline-offset-4 decoration-primary/30 hover:decoration-primary"
             >
-              {authMode === "login" ? "Don't have an account? Register" : "Already have an account? Sign in"}
+              {authMode === "login" ? "Need an account? Register" : "Already have an account? Sign in"}
             </button>
           </CardFooter>
         </Card>
+        </div>
       </div>
     );
   }
@@ -347,7 +392,7 @@ export default function App() {
             <div className="p-1.5 rounded-lg bg-primary/20">
               <ShoppingBag className="h-5 w-5 text-primary" />
             </div>
-            <span className="font-bold text-lg tracking-tight">ShopAdmin</span>
+            <span className="font-black text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-primary to-purple-400">Buzzin</span>
           </div>
 
           <div className="relative flex-1 max-w-md">
@@ -382,8 +427,45 @@ export default function App() {
           </div>
         </div>
       </header>
+      
+      {/* Hero Carousel */}
+      <div className="relative w-full h-[400px] sm:h-[500px] overflow-hidden mb-8 group bg-muted">
+        {HERO_IMAGES.map((img, i) => (
+          <div
+            key={i}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${i === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"}`}
+          >
+            <img src={img} alt="Hero" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
+          </div>
+        ))}
+        <div className="absolute inset-0 flex items-center z-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full">
+            <div className="max-w-lg space-y-6 animate-in slide-in-from-bottom-8 duration-700 fade-in-0">
+              <Badge className="bg-primary/20 text-primary border-primary/30 py-1.5 px-4 text-xs tracking-wider rounded-full backdrop-blur-sm">NEW TRENDS</Badge>
+              <h1 className="text-4xl sm:text-6xl font-black tracking-tighter text-white drop-shadow-xl leading-tight">
+                Discover the <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-300 drop-shadow-none">Extraordinary.</span>
+              </h1>
+              <p className="text-lg text-gray-300 font-medium drop-shadow-md max-w-md">
+                Explore top trends, exclusive deals, and premium products curated just for you at Buzzin.
+              </p>
+              <div className="pt-2">
+                <Button size="lg" className="rounded-full shadow-[0_0_20px_rgba(233,30,99,0.4)] hover:shadow-[0_0_30px_rgba(233,30,99,0.7)] hover:-translate-y-1 transition-all px-8 text-md font-bold" onClick={() => window.scrollTo({top: 500, behavior: 'smooth'})}>
+                  Start Shopping
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2.5 z-20">
+          {HERO_IMAGES.map((_, i) => (
+            <button key={i} onClick={() => setCurrentSlide(i)} className={`h-2 rounded-full transition-all duration-300 ${i === currentSlide ? "w-8 bg-primary shadow-[0_0_10px_theme(colors.primary.DEFAULT)]" : "w-2 bg-white/40 hover:bg-white/70"}`} />
+          ))}
+        </div>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Products</h1>
@@ -478,16 +560,16 @@ export default function App() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {products.map((product) => (
-              <Card key={product.id} className="overflow-hidden group">
+              <Card key={product.id} className="overflow-hidden group hover:-translate-y-2 hover:shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:shadow-primary/10 transition-all duration-300 border-border/50 bg-card/50 backdrop-blur-md">
                 <div className="relative overflow-hidden bg-muted aspect-square">
                   {product.image && !product.image.includes("placeholder.com") ? (
                     <>
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
                       />
                       <div className="absolute inset-0 hidden flex-col items-center justify-center gap-2 text-muted-foreground">
