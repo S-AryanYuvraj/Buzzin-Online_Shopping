@@ -31,7 +31,7 @@ export default function App() {
     }
   });
   const [authMode, setAuthMode] = useState("login");
-  const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
+  const [authForm, setAuthForm] = useState({ username: "", email: "", password: "", role: "BUYER" });
   const [authError, setAuthError] = useState("");
 
   const [products, setProducts] = useState([]);
@@ -102,6 +102,59 @@ export default function App() {
     } catch { }
   }
 
+  async function handleCheckout() {
+    if (!user || !cart || !cart.items.length) return;
+    try {
+      const res = await fetch(`${API}/api/payment/createOrder`, {
+        method: 'POST',
+        headers: { "Authorization": `Bearer ${user.token}` }
+      });
+      if (!res.ok) throw new Error("Failed to create order");
+      const order = await res.json();
+      
+      const options = {
+        key: order.keyId,
+        amount: order.amount * 100, // paise
+        currency: order.currency,
+        name: "ShopAdmin",
+        description: "Test Transaction",
+        order_id: order.orderId,
+        handler: async function (response) {
+          try {
+            const verifyRes = await fetch(`${API}/api/payment/verify`, {
+              method: 'POST',
+              headers: { 
+                "Authorization": `Bearer ${user.token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            if (verifyRes.ok) {
+              alert("Payment successful!");
+              loadCart();
+              setCartOpen(false);
+            } else {
+              alert("Payment verification failed");
+            }
+          } catch(err) {
+            alert("Error verifying payment");
+          }
+        },
+        theme: { color: "#3399cc" }
+      };
+      
+      const rzp1 = new window.Razorpay(options);
+      rzp1.open();
+      
+    } catch(err) {
+      alert(err.message);
+    }
+  }
+
   const loadProducts = useCallback(async () => {
     const params = new URLSearchParams({
       page: currentPage,
@@ -155,6 +208,7 @@ export default function App() {
             username: authForm.username,
             email: authForm.email,
             password: authForm.password,
+            role: authForm.role,
           }),
         });
         if (!res.ok) throw new Error("Registration failed");
@@ -177,7 +231,11 @@ export default function App() {
       formData.append("price", productForm.price);
       if (productImage) formData.append("image", productImage);
 
-      const res = await fetch(`${API}/addproduct`, { method: "POST", body: formData });
+      const res = await fetch(`${API}/addproduct`, { 
+        method: "POST", 
+        body: formData,
+        headers: { "Authorization": `Bearer ${user.token}` }
+      });
       if (!res.ok) throw new Error("Failed to add product");
       setProductForm({ name: "", description: "", price: "" });
       setProductImage(null);
@@ -226,16 +284,25 @@ export default function App() {
                 />
               </div>
               {authMode === "register" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</label>
-                  <Input
-                    type="email"
-                    value={authForm.email}
-                    onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                    placeholder="you@example.com"
-                    required
-                  />
-                </div>
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</label>
+                    <Input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Role</label>
+                    <Select value={authForm.role} onValueChange={(val) => setAuthForm({ ...authForm, role: val })}>
+                      <SelectItem value="BUYER">Buyer</SelectItem>
+                      <SelectItem value="SELLER">Seller</SelectItem>
+                    </Select>
+                  </div>
+                </>
               )}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Password</label>
@@ -298,7 +365,7 @@ export default function App() {
               <Package className="h-3 w-3" />
               {totalElements} products
             </Badge>
-            {user.role !== "ADMIN" && (
+            {(user.role === "BUYER" || user.role === "USER") && (
               <Button variant="outline" size="icon" className="relative group" onClick={() => setCartOpen(true)}>
                 <ShoppingBag className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 {cart?.items?.length > 0 && (
@@ -336,7 +403,7 @@ export default function App() {
               <SelectItem value="DESC">Descending</SelectItem>
             </Select>
 
-            {user.role === "ADMIN" && (
+            {(user.role === "ADMIN" || user.role === "SELLER") && (
               <Dialog open={addOpen} onOpenChange={setAddOpen}>
                 <DialogTrigger asChild>
                   <Button>
@@ -435,7 +502,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {user.role === "ADMIN" ? (
+                  {(user.role === "ADMIN" || (user.role === "SELLER" && product.seller?.username === user.username)) && (
                     <button
                       onClick={() => handleDelete(product.id)}
                       className="absolute top-3 right-3 p-2 rounded-lg bg-destructive/80 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-destructive scale-90 group-hover:scale-100"
@@ -443,7 +510,8 @@ export default function App() {
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
-                  ) : (
+                  )}
+                  {(user.role === "BUYER" || user.role === "USER") && (
                     <button
                       onClick={() => addToCart(product.id)}
                       className="absolute bottom-3 right-3 p-2 rounded-lg bg-primary/90 text-primary-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-primary scale-90 group-hover:scale-100 shadow-lg"
@@ -562,7 +630,7 @@ export default function App() {
                   <Button variant="outline" onClick={clearCart} className="w-full">
                     Clear Cart
                   </Button>
-                  <Button className="w-full">
+                  <Button className="w-full" onClick={handleCheckout}>
                     Checkout
                   </Button>
                 </div>

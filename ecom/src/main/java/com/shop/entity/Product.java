@@ -28,4 +28,8 @@ public class Product{
 
     @Column(nullable = false)
     private float price;
+
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "seller_id")
+    private User seller;
 }

@@ -13,6 +13,11 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+import com.shop.entity.User;
+import com.shop.repository.UserRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import org.springframework.data.domain.Page;
 
@@ -21,10 +26,12 @@ public class ProductController {
 
   private final ProductService ps;
   private final ImageUploadService imageService;
+  private final UserRepository ur;
 
-  public ProductController(ProductService ps, ImageUploadService imageService) {
+  public ProductController(ProductService ps, ImageUploadService imageService, UserRepository ur) {
     this.ps = ps;
     this.imageService = imageService;
+    this.ur = ur;
   }
 
   @GetMapping("/productlist")
@@ -38,7 +45,8 @@ public class ProductController {
   }
 
   @PostMapping("/addproduct")
-  public String addProduct(@RequestParam("name") String name,
+  public String addProduct(Authentication authentication,
+      @RequestParam("name") String name,
       @RequestParam("description") String description,
       @RequestParam("price") float price,
       @RequestParam(value = "image", required = false) MultipartFile imageFile) throws Exception {
@@ -47,6 +55,9 @@ public class ProductController {
     p.setName(name);
     p.setDescription(description);
     p.setPrice(price);
+
+    User seller = ur.findByUsername(authentication.getName());
+    p.setSeller(seller);
 
     if (imageFile != null && !imageFile.isEmpty()) {
       try {
@@ -64,7 +75,15 @@ public class ProductController {
   }
 
   @DeleteMapping("/deleteproduct/{id}")
-  public String deleteProduct(@PathVariable Long id) {
+  public String deleteProduct(Authentication authentication, @PathVariable Long id) {
+    User user = ur.findByUsername(authentication.getName());
+    Product product = ps.listPro(0, 1000, "id", "ASC", "").getContent().stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
+    if (product == null) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found");
+    }
+    if (!user.getRole().equals("ADMIN") && (product.getSeller() == null || !product.getSeller().getId().equals(user.getId()))) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have permission to delete this product");
+    }
     ps.deletePro(id);
     return "deleted";
   }
